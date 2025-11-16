@@ -26,7 +26,7 @@ extern "C" {
 
 namespace extension_cpp {
 
-at::Tensor mymuladd_cpu(const at::Tensor& a, const at::Tensor& b, double c) {
+at::Tensor convrnn_forward_cpu(const at::Tensor& a, const at::Tensor& b, double c) {
   TORCH_CHECK(a.sizes() == b.sizes());
   TORCH_CHECK(a.dtype() == at::kFloat);
   TORCH_CHECK(b.dtype() == at::kFloat);
@@ -85,14 +85,14 @@ void myadd_out_cpu(const at::Tensor& a, const at::Tensor& b, at::Tensor& out) {
 
 // Defines the operators
 TORCH_LIBRARY(extension_cpp, m) {
-  m.def("mymuladd(Tensor a, Tensor b, float c) -> Tensor");
+  m.def("convrnn_forward(Tensor a, Tensor b, float c) -> Tensor");
   m.def("mymul(Tensor a, Tensor b) -> Tensor");
   m.def("myadd_out(Tensor a, Tensor b, Tensor(a!) out) -> ()");
 }
 
-// Registers CPU implementations for mymuladd, mymul, myadd_out
+// Registers CPU implementations for convrnn_forward, mymul, myadd_out
 TORCH_LIBRARY_IMPL(extension_cpp, CPU, m) {
-  m.impl("mymuladd", &mymuladd_cpu);
+  m.impl("convrnn_forward", &convrnn_forward_cpu);
   m.impl("mymul", &mymul_cpu);
   m.impl("myadd_out", &myadd_out_cpu);
 }

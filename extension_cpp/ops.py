@@ -1,19 +1,19 @@
 import torch
 from torch import Tensor
 
-__all__ = ["mymuladd", "myadd_out"]
+__all__ = ["convrnn_forward", "myadd_out", "reference_muladd"]
 
 
-def mymuladd(a: Tensor, b: Tensor, c: float) -> Tensor:
+def convrnn_forward(a: Tensor, b: Tensor, c: float) -> Tensor:
     """Performs a * b + c in an efficient fused kernel"""
-    return torch.ops.extension_cpp.mymuladd.default(a, b, c)
+    return torch.ops.extension_cpp.convrnn_forward.default(a, b, c)
 
 
 # Registers a FakeTensor kernel (aka "meta kernel", "abstract impl")
 # that describes what the properties of the output Tensor are given
 # the properties of the input Tensor. The FakeTensor kernel is necessary
 # for the op to work performantly with torch.compile.
-@torch.library.register_fake("extension_cpp::mymuladd")
+@torch.library.register_fake("extension_cpp::convrnn_forward")
 def _(a, b, c):
     torch._check(a.shape == b.shape)
     torch._check(a.dtype == torch.float)
@@ -46,7 +46,7 @@ def _setup_context(ctx, inputs, output):
 # the backward formula for the operator and a `setup_context` function
 # to save values to be used in the backward.
 torch.library.register_autograd(
-    "extension_cpp::mymuladd", _backward, setup_context=_setup_context)
+    "extension_cpp::convrnn_forward", _backward, setup_context=_setup_context)
 
 
 @torch.library.register_fake("extension_cpp::mymul")
@@ -61,3 +61,10 @@ def _(a, b):
 def myadd_out(a: Tensor, b: Tensor, out: Tensor) -> None:
     """Writes a + b into out"""
     torch.ops.extension_cpp.myadd_out.default(a, b, out)
+
+
+
+########################################## Reference Implementations
+
+def reference_muladd(a, b, c):
+    return a * b + c

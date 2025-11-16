@@ -13,7 +13,7 @@ __global__ void muladd_kernel(int numel, const float* a, const float* b, float c
   if (idx < numel) result[idx] = a[idx] * b[idx] + c;
 }
 
-at::Tensor mymuladd_cuda(const at::Tensor& a, const at::Tensor& b, double c) {
+at::Tensor convrnn_forward_cuda(const at::Tensor& a, const at::Tensor& b, double c) {
   TORCH_CHECK(a.sizes() == b.sizes());
   TORCH_CHECK(a.dtype() == at::kFloat);
   TORCH_CHECK(b.dtype() == at::kFloat);
@@ -81,9 +81,9 @@ void myadd_out_cuda(const at::Tensor& a, const at::Tensor& b, at::Tensor& out) {
 }
 
 
-// Registers CUDA implementations for mymuladd, mymul, myadd_out
+// Registers CUDA implementations for convrnn_forward, mymul, myadd_out
 TORCH_LIBRARY_IMPL(extension_cpp, CUDA, m) {
-  m.impl("mymuladd", &mymuladd_cuda);
+  m.impl("convrnn_forward", &convrnn_forward_cuda);
   m.impl("mymul", &mymul_cuda);
   m.impl("myadd_out", &myadd_out_cuda);
 }

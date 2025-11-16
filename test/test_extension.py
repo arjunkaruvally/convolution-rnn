@@ -7,13 +7,10 @@ from torch import Tensor
 from typing import Tuple
 import torch.nn.functional as F
 import torch.nn as nn
+from extension_cpp.ops import reference_muladd
 
 
-def reference_muladd(a, b, c):
-    return a * b + c
-
-
-class TestMyMulAdd(TestCase):
+class Testconvrnn_forward(TestCase):
     def sample_inputs(self, device, *, requires_grad=False):
         def make_tensor(*size):
             return torch.randn(size, device=device, requires_grad=requires_grad)
@@ -31,7 +28,7 @@ class TestMyMulAdd(TestCase):
     def _test_correctness(self, device):
         samples = self.sample_inputs(device)
         for args in samples:
-            result = extension_cpp.ops.mymuladd(*args)
+            result = extension_cpp.ops.convrnn_forward(*args)
             expected = reference_muladd(*args)
             torch.testing.assert_close(result, expected)
 
@@ -46,7 +43,7 @@ class TestMyMulAdd(TestCase):
         samples = self.sample_inputs(device, requires_grad=True)
         for args in samples:
             diff_tensors = [a for a in args if isinstance(a, torch.Tensor) and a.requires_grad]
-            out = extension_cpp.ops.mymuladd(*args)
+            out = extension_cpp.ops.convrnn_forward(*args)
             grad_out = torch.randn_like(out)
             result = torch.autograd.grad(out, diff_tensors, grad_out)
 
@@ -67,7 +64,7 @@ class TestMyMulAdd(TestCase):
         samples = self.sample_inputs(device, requires_grad=True)
         samples.extend(self.sample_inputs(device, requires_grad=False))
         for args in samples:
-            opcheck(torch.ops.extension_cpp.mymuladd.default, args)
+            opcheck(torch.ops.extension_cpp.convrnn_forward.default, args)
 
     def test_opcheck_cpu(self):
         self._opcheck("cpu")
@@ -133,7 +130,7 @@ class TestTorchCompileStreamSync(TestCase):
                 self.linear = nn.Linear(size, size, device="cuda", dtype=torch.float32)
             
             def forward(self, x):
-                return extension_cpp.ops.mymuladd(self.linear(x), self.linear(x), 0.0)
+                return extension_cpp.ops.convrnn_forward(self.linear(x), self.linear(x), 0.0)
         
         # Test sizes that previously failed
         for size in [1000, 5000, 10000]:
@@ -154,7 +151,7 @@ class TestTorchCompileStreamSync(TestCase):
         """Test custom operations alone with torch.compile"""
         
         def model(x):
-            return extension_cpp.ops.mymuladd(x, x, 1.0)
+            return extension_cpp.ops.convrnn_forward(x, x, 1.0)
         
         for size in [1000, 5000, 10000]:
             with self.subTest(size=size):

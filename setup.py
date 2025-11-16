@@ -33,6 +33,8 @@ def get_extensions():
     use_cuda = use_cuda and torch.cuda.is_available() and CUDA_HOME is not None
     extension = CUDAExtension if use_cuda else CppExtension
 
+    print(f"=============cuda status: {use_cuda}")
+
     extra_link_args = []
     extra_compile_args = {
         "cxx": [
