@@ -1,12 +1,18 @@
 import torch
 from torch import Tensor
+import torch.nn.functional as F
+from typing import Tuple
 
-__all__ = ["convrnn_forward", "myadd_out", "reference_muladd"]
+__all__ = ["convrnn_forward", "reference_convrnn", "convrnn_interface"]
 
 
-def convrnn_forward(a: Tensor, b: Tensor, c: float) -> Tensor:
-    """Performs a * b + c in an efficient fused kernel"""
-    return torch.ops.extension_cpp.convrnn_forward.default(a, b, c)
+def convrnn_interface(x: Tensor, kernel: Tensor, hidden: float):
+    return convrnn_forward(x, kernel, hidden)[0]
+
+
+def convrnn_forward(x: Tensor, kernel: Tensor, hidden: float) -> Tuple[Tensor, Tensor]:
+    """Computes the output of conovlutional RNN"""
+    return torch.ops.extension_cpp.convrnn_forward.default(x, kernel, hidden)
 
 
 # Registers a FakeTensor kernel (aka "meta kernel", "abstract impl")
@@ -14,32 +20,21 @@ def convrnn_forward(a: Tensor, b: Tensor, c: float) -> Tensor:
 # the properties of the input Tensor. The FakeTensor kernel is necessary
 # for the op to work performantly with torch.compile.
 @torch.library.register_fake("extension_cpp::convrnn_forward")
-def _(a, b, c):
-    torch._check(a.shape == b.shape)
-    torch._check(a.dtype == torch.float)
-    torch._check(b.dtype == torch.float)
-    torch._check(a.device == b.device)
-    return torch.empty_like(a)
+def _(x, kernel, hidden):
+    return torch.empty_like(x), torch.empty_like(kernel), torch.empty_like(hidden)
 
 
-def _backward(ctx, grad):
-    a, b = ctx.saved_tensors
-    grad_a, grad_b = None, None
-    if ctx.needs_input_grad[0]:
-        grad_a = torch.ops.extension_cpp.mymul.default(grad, b)
-    if ctx.needs_input_grad[1]:
-        grad_b = torch.ops.extension_cpp.mymul.default(grad, a)
-    return grad_a, grad_b, None
+def _backward(ctx, grad_y, grad_y_inter):
+    saved_tensors = ctx.saved_tensors
+    inputs = saved_tensors[:3]
+    y = saved_tensors[3]
+    y_inter = saved_tensors[4]
+    grad_x, grad_kernel, grad_hidden = torch.ops.extension_cpp.convrnn_backward.default(grad_y, *inputs, y, y_inter)
+    return grad_x, grad_kernel, grad_hidden
 
 
 def _setup_context(ctx, inputs, output):
-    a, b, c = inputs
-    saved_a, saved_b = None, None
-    if ctx.needs_input_grad[0]:
-        saved_b = b
-    if ctx.needs_input_grad[1]:
-        saved_a = a
-    ctx.save_for_backward(saved_a, saved_b)
+    ctx.save_for_backward(*inputs, *output)
 
 
 # This adds training support for the operator. You must provide us
@@ -49,22 +44,40 @@ torch.library.register_autograd(
     "extension_cpp::convrnn_forward", _backward, setup_context=_setup_context)
 
 
-@torch.library.register_fake("extension_cpp::mymul")
-def _(a, b):
-    torch._check(a.shape == b.shape)
-    torch._check(a.dtype == torch.float)
-    torch._check(b.dtype == torch.float)
-    torch._check(a.device == b.device)
-    return torch.empty_like(a)
-
-
-def myadd_out(a: Tensor, b: Tensor, out: Tensor) -> None:
-    """Writes a + b into out"""
-    torch.ops.extension_cpp.myadd_out.default(a, b, out)
-
-
+@torch.library.register_fake("extension_cpp::convrnn_backward")
+def _(x, kernel, hidden):
+    return torch.empty_like(x)
 
 ########################################## Reference Implementations
 
-def reference_muladd(a, b, c):
-    return a * b + c
+def reference_convrnn(x: Tensor, kernel: Tensor, hidden:Tensor) -> Tensor:
+    """
+    Convolution RNN implementation for reference. 
+
+    b - batch size
+    k - kernel size
+    n - hidden dimension
+    l - sequence length
+    
+    Parameters
+    ----------
+    x : Tensor (b l n)
+    kernel : Tensor (1, 1, k)
+    hidden : Tensor (b, 1, n)
+
+    Returns
+    -------
+    y : Full hidden state trajectory (b l n)
+    """
+
+    b, l, n = x.shape
+    y = torch.zeros((b, l+1, n), device=x.device)
+    y[:, :1, :] = hidden
+
+    hidden_clone = hidden.clone()
+    for i in range(l):
+        hidden_clone = torch.tanh(F.conv1d(hidden_clone, kernel, bias=None, padding="same") 
+                                + x[:, i:i+1, :])
+        y[:, i+1:i+2, :] = hidden_clone.clone()
+
+    return y
