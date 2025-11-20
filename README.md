@@ -2,8 +2,8 @@
 
 An example of writing a C++/CUDA extension for PyTorch. See
 [here](https://pytorch.org/tutorials/advanced/cpp_custom_ops.html) for the accompanying tutorial on CUDA operator. 
-This repo is a fork of [https://github.com/pytorch/extension-cpp](https://github.com/pytorch/extension-cpp) which is the
-repo containing the official pytorch custom operator.
+This repo is a fork of [https://github.com/pytorch/extension-cpp](https://github.com/pytorch/extension-cpp) that 
+contains the official pytorch custom operator.
 
 The repo contains a CUDA kernel implementation of convolution RNN. The operator has the following signature
 
