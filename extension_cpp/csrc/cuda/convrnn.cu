@@ -94,7 +94,7 @@ std::tuple<at::Tensor,at::Tensor,at::Tensor> convrnn_backward_cuda(
     grad_kernel = grad_kernel + std::get<1>(grad_conv_backward);
   }
 
-  return { grad_x, grad_kernel, grad_h_inter };
+  return { grad_x, grad_kernel, grad_h_inter + grad_y.index({Slice(), Slice(0, 1, 1), Slice()}) };
 }
 
 // Registers CUDA implementations for convrnn_forward, mymul, myadd_out

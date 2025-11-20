@@ -55,6 +55,8 @@ class Testconvrnn_forward(TestCase):
             for param_id in range(len(result)):
                 print(f"grad for {param_names[param_id]} {param_id+1}/{len(result)}")
                 # try:
+                # print(result[param_id])
+                # print(expected[param_id])
                 torch.testing.assert_close(result[param_id], expected[param_id])
                 # except AssertionError as e:
                     # print(f"grad failed {e.__traceback__}")
