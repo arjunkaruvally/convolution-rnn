@@ -75,8 +75,13 @@ def reference_convrnn(x: Tensor, kernel: Tensor, hidden:Tensor) -> Tensor:
     y[:, :1, :] = hidden
 
     hidden_clone = hidden.clone()
+    k = kernel.size(2)
+    pad_left = k // 2
+    pad_right = k - pad_left - 1
     for i in range(l):
-        hidden_clone = torch.tanh(F.conv1d(hidden_clone, kernel, bias=None, padding="same") 
+        # Circular padding: wrap values from the opposite end
+        hidden_padded = F.pad(hidden_clone, (pad_left, pad_right), mode='circular')
+        hidden_clone = torch.tanh(F.conv1d(hidden_padded, kernel, bias=None, padding=0) 
                                 + x[:, i:i+1, :])
         y[:, i+1:i+2, :] = hidden_clone.clone()
 
